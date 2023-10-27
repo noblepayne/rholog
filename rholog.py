@@ -4,6 +4,7 @@ import json
 import logging
 import sys
 import time
+import traceback
 import typing
 import uuid
 
@@ -11,6 +12,7 @@ import uuid
 DEFAULT_FIELDS = {
     "name": "name",
     "levelname": "levelname",
+    # TODO: how to handle the... special handling of msg/message?
     "message": "message",
     "timestamp": "asctime",
 }
@@ -122,15 +124,38 @@ def trace(logger, name, context=None, root_id=None):
 
     context_log = add_context(logger, new_context)
 
+    exc = None
+    status = "OK"
     start = time.time()
-    yield context_log
+    try:
+        yield context_log
+    except Exception as e:
+        exc = e
+        status = "ERROR"
     end = time.time()
 
     duration = end - start
-    context_log.info({"message": "TRACE", "trace": name, "duration": duration})
+    final_trace = {
+        "trace": True,
+        "message": name,
+        "status": status,
+        "start_time": start,
+        "end_time": end,
+        "duration": duration,
+    }
+    if exc is not None:
+        final_trace["exception"] = str(exc)
+        final_trace["traceback"] = "".join(traceback.format_exception(exc))
+        context_log.error(final_trace)
+    else:
+        context_log.info(final_trace)
 
     context_log.logger = base_log
     context_log.extra = existing_extra
+    if exc is not None:
+        pass
+        raise exc
+
 
 def log(logger, name, context=None, root_id=None):
     with trace(logger, name, context, root_id) as tr:
