@@ -14,9 +14,9 @@ def step2_substep1():
 
 
 def step2_substep2(log):
-    ρ.log(log, "long sleep time")
+    ρ.event(log, "long sleep time")
     time.sleep(4)
-    ρ.log(log, "done sleeping")
+    ρ.event(log, "done sleeping")
     1 / 0
 
 
@@ -35,5 +35,5 @@ def main(log, root_id):
 if __name__ == "__main__":
     root_id = uuid.uuid4().hex
     ρ.setup_logging()
-    log = logging.getLogger("main")
+    log = logging.getLogger("demo2")
     main(log, root_id)

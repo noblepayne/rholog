@@ -38,5 +38,5 @@ def main(log, root_id):
 if __name__ == "__main__":
     root_id = uuid.uuid4().hex
     ρ.setup_logging()
-    log = logging.getLogger("main")
+    log = logging.getLogger("demo1")
     main(log, root_id)
