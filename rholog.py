@@ -111,7 +111,7 @@ def context(logger, context, adapter=None):
 
 @contextlib.contextmanager
 def trace(
-    logger: typing.Union[logging.LoggerAdapter, "Span"],
+    logger: logging.Logger,
     name: str,
     context: typing.Mapping | None = None,
     root_id: str | None = None,
