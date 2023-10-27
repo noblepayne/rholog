@@ -93,13 +93,23 @@ def add_context(logger, context):
 
 
 @contextlib.contextmanager
+def context(logger, context):
+    base_log = base_logger(logger)
+    existing_extra = getattr(logger, "extra", {})
+    newlog = add_context(logger, context)
+    yield newlog
+    newlog.logger = base_log
+    newlog.extra = existing_extra
+
+
+@contextlib.contextmanager
 def trace(logger, name, context=None, root_id=None):
     if context is None:
         context = {}
     base_log = base_logger(logger)
     existing_extra = getattr(logger, "extra", {})
 
-    trace_id = str(uuid.uuid4())
+    trace_id = uuid.uuid4().hex
     parent_id = existing_extra.get("trace_id")
     if root_id is None:
         root_id = existing_extra.get("root_id", trace_id)
@@ -121,3 +131,7 @@ def trace(logger, name, context=None, root_id=None):
 
     context_log.logger = base_log
     context_log.extra = existing_extra
+
+def log(logger, name, context=None, root_id=None):
+    with trace(logger, name, context, root_id) as tr:
+        pass
