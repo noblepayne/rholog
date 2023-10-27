@@ -29,7 +29,7 @@ def available_logrecord_fields() -> dict:
 
 
 class BasicJSONFormatter(logging.Formatter):
-    def __init__(self, *args, fields=None, **kwargs):
+    def __init__(self, *args, fields=None, indent=None, **kwargs):
         super().__init__(*args, **kwargs)
         if fields is None:
             fields = DEFAULT_FIELDS
@@ -41,6 +41,7 @@ class BasicJSONFormatter(logging.Formatter):
         else:
             self.timestamp_key = None
         self.fields = fields
+        self.indent = indent
         self.base_fields = available_logrecord_fields().keys()
 
     def formatTime(self, record, datefmt=None):
@@ -67,17 +68,17 @@ class BasicJSONFormatter(logging.Formatter):
         final = {**chosen_fields, **nested, **extra}
         if self.timestamp_key is not None:
             final[self.timestamp_key] = record.asctime
-        return json.dumps(final, indent=2)
+        return json.dumps(final, indent=self.indent)
 
 
-def setup_logging(level=logging.DEBUG):
+def setup_logging(level=logging.DEBUG, fields=None, indent=None):
     root = logging.getLogger()
     [root.removeHandler(handler) for handler in root.handlers]
     root.setLevel(level)
     stdout = logging.StreamHandler(sys.stdout)
     # TODO: needed? not needed?
     # stdout.setLevel(level)
-    formatter = BasicJSONFormatter()
+    formatter = BasicJSONFormatter(fields=fields, indent=indent)
     stdout.setFormatter(formatter)
     root.addHandler(stdout)
 
