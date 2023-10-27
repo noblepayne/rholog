@@ -166,7 +166,6 @@ def trace(
     context_log.logger = base_log
     context_log.extra = existing_extra
     if exc is not None:
-        pass
         raise exc
 
 
