@@ -1,0 +1,17 @@
+[project]
+name = "rholog"
+version = "0.1.0"
+description = "Simple logging and tracing inspired by mulog"
+authors = [
+    {name = "Wes Payne", email = "noblepayne@noblepayne.com"},
+]
+dependencies = [
+    "fastapi>=0.104.1",
+]
+requires-python = ">=3.10"
+readme = "README.md"
+license = {text = "MIT"}
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"

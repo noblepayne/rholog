@@ -1,109 +1,35 @@
 import contextlib
-import datetime
-import inspect
 import functools
-import json
+import inspect
 import logging
-import sys
 import time
 import traceback
 import typing
 import uuid
 
 
-DEFAULT_FIELDS = {
-    "name": "name",
-    "levelname": "levelname",
-    # TODO: how to handle the... special handling of msg/message?
-    "message": "message",
-    "timestamp": "asctime",
-}
-
-
-def available_logrecord_fields() -> dict:
-    fmt = logging.Formatter()
-    rec = logging.LogRecord("name", 10, "pathname", 13, "msg", (), None)
-    setattr(fmt, "usesTime", lambda: True)
-    fmt.format(rec)
-    return rec.__dict__
-
-
-class BasicJSONFormatter(logging.Formatter):
-    def __init__(self, *args, fields=None, indent=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        if fields is None:
-            fields = DEFAULT_FIELDS
-        timestamp_keys = {k for k in fields if fields[k] == "asctime"}
-        if len(timestamp_keys) == 1:
-            timestamp_key = timestamp_keys.pop()
-            fields.pop(timestamp_key, None)
-            self.timestamp_key = timestamp_key
-        else:
-            self.timestamp_key = None
-        self.fields = fields
-        self.indent = indent
-        self.base_fields = available_logrecord_fields().keys()
-
-    def formatTime(self, record, datefmt=None):
-        return (
-            datetime.datetime.fromtimestamp(record.created)
-            .astimezone(datetime.timezone.utc)
-            .isoformat()
-        )
-
-    def usesTime(self):
-        return self.timestamp_key is not None
-
-    def format(self, record):
-        super().format(record)
-        extra = {
-            k: record.__dict__.get(k)
-            for k in record.__dict__
-            if k not in self.base_fields
-        }
-        nested = record.msg if isinstance(record.msg, typing.Mapping) else {}
-        chosen_fields = {k: record.__dict__.get(v) for k, v in self.fields.items()}
-        if nested:
-            chosen_fields.pop("message", None)
-        final = {**chosen_fields, **nested, **extra}
-        if self.timestamp_key is not None:
-            final[self.timestamp_key] = record.asctime
-        return json.dumps(final, indent=self.indent)
-
-
-def setup_logging(level=logging.DEBUG, fields=None, indent=None):
-    root = logging.getLogger()
-    [root.removeHandler(handler) for handler in root.handlers]
-    root.setLevel(level)
-    stdout = logging.StreamHandler(sys.stdout)
-    # TODO: needed? not needed?
-    # stdout.setLevel(level)
-    formatter = BasicJSONFormatter(fields=fields, indent=indent)
-    stdout.setFormatter(formatter)
-    root.addHandler(stdout)
-
-
-def base_logger(logger):
+# TODO: needed?
+def _base_logger(logger):
     base = logger
     while isinstance(base, logging.LoggerAdapter):
         base = base.logger
     return base
 
 
-def add_context(logger, context, adapter=None):
+def _add_context(logger, context, adapter=None):
     if adapter is None:
         adapter = logging.LoggerAdapter
     old_context = getattr(logger, "extra", {})
     new_context = {**old_context, **context}
-    base_log = base_logger(logger)
+    base_log = _base_logger(logger)
     return adapter(base_log, new_context)
 
 
 @contextlib.contextmanager
 def context(logger, context, adapter=None):
-    base_log = base_logger(logger)
+    base_log = _base_logger(logger)
     existing_extra = getattr(logger, "extra", {})
-    newlog = add_context(logger, context, adapter)
+    newlog = _add_context(logger, context, adapter)
     yield newlog
     newlog.logger = base_log
     newlog.extra = existing_extra
@@ -122,7 +48,7 @@ def trace(
         level = logging.INFO
     if context is None:
         context = {}
-    base_log = base_logger(logger)
+    base_log = _base_logger(logger)
     existing_extra = getattr(logger, "extra", {})
 
     trace_id = uuid.uuid4().hex
@@ -136,7 +62,7 @@ def trace(
     new_context["trace_id"] = trace_id
     new_context.update(context)
 
-    context_log = add_context(logger, new_context, Span)
+    context_log = _add_context(logger, new_context, Span)
 
     exc = None
     status = "OK"
