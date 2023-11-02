@@ -6,38 +6,39 @@ from rholog import jsonformatter
 from rholog import rholog as ρ
 
 
-def step1(log):
-    with ρ.trace(log, "step1") as log:
+def step1(span: ρ.ISpan):
+    with span.trace("step1") as span:
         time.sleep(1)
 
 
-def step2_substep1(log):
-    with ρ.trace(log, "step2_substep1") as log:
+def step2_substep1(span: ρ.ISpan):
+    with span.trace("step2_substep1") as span:
         time.sleep(1)
 
 
-def step2_substep2(log):
-    with ρ.trace(log, "step2_substep2") as log:
-        log.info("long sleep time")
+def step2_substep2(span: ρ.ISpan):
+    with span.trace("step2_substep2") as span:
+        span.event("long sleep time")
         time.sleep(4)
-        log.info("done sleeping")
+        span.event("done sleeping")
 
 
-def step2(log):
-    with ρ.trace(log, "step2") as log:
-        step2_substep1(log)
+def step2(span: ρ.ISpan):
+    with span.trace("step2") as span:
+        step2_substep1(span)
         time.sleep(1)
-        step2_substep2(log)
+        step2_substep2(span)
 
 
-def main(log, root_id):
-    with ρ.trace(log, "main", root_id=root_id) as log:
-        step1(log)
-        step2(log)
+def main(publisher, root_id):
+    with ρ.trace(publisher, "main", root_id=root_id) as span:
+        step1(span)
+        step2(span)
 
 
 if __name__ == "__main__":
     root_id = uuid.uuid4().hex
     jsonformatter.log_json_to_stdout(indent=2)
     log = logging.getLogger("demo1")
-    main(log, root_id)
+    publisher = jsonformatter.JsonLogSpanPublisher(log)
+    main(publisher, root_id)

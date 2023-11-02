@@ -14,27 +14,28 @@ def step2_substep1():
     time.sleep(1)
 
 
-def step2_substep2(log):
-    ρ.event(log, "long sleep time")
+def step2_substep2(span: ρ.ISpan):
+    span.event("long sleep time")
     time.sleep(4)
-    ρ.event(log, "done sleeping")
+    span.event("done sleeping")
     1 / 0
 
 
-def step2(log):
+def step2(span: ρ.ISpan):
     step2_substep1()
     time.sleep(1)
-    step2_substep2(log)
+    step2_substep2(span)
 
 
-def main(log, root_id):
-    with ρ.trace(log, "main", root_id=root_id) as log:
+def main(publisher, root_id):
+    with ρ.trace(publisher, "main", root_id=root_id) as span:
         step1()
-        step2(log)
+        step2(span)
 
 
 if __name__ == "__main__":
     root_id = uuid.uuid4().hex
     jsonformatter.log_json_to_stdout(indent=2)
     log = logging.getLogger("demo2")
-    main(log, root_id)
+    publisher = jsonformatter.JsonLogSpanPublisher(log)
+    main(publisher, root_id)
