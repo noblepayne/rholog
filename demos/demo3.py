@@ -2,7 +2,8 @@ import logging
 import time
 import uuid
 
-import rholog as ρ
+from rholog import jsonformatter
+from rholog import rholog as ρ
 
 
 # TODO: test kwargs, other names, etc.
@@ -21,6 +22,6 @@ def main(log, root_id):
 
 if __name__ == "__main__":
     root_id = uuid.uuid4().hex
-    ρ.setup_logging(indent=2)
+    jsonformatter.log_json_to_stdout(indent=2)
     log = logging.getLogger("demo3")
     main(log, root_id)
