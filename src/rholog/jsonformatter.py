@@ -67,7 +67,7 @@ class JSONFormatter(logging.Formatter):
         final = {**chosen_fields, **nested, **extra}
         if self.timestamp_key is not None:
             final[self.timestamp_key] = record.asctime
-        return json.dumps(final, indent=self.indent)
+        return json.dumps(final, indent=self.indent, default=str)
 
 
 def log_json_to_stdout(level=logging.DEBUG, fields=None, indent=None, clear=True):

@@ -44,10 +44,14 @@ class Span(ISpan):
     name: str
     context: dict
 
-    def __init__(self, publisher: IPublish):
+    def __init__(self, publisher: IPublish, name=None, context=None):
         self.publisher = publisher
-        self.name = ""
-        self.context = {}
+        if name is None:
+            name = ""
+        self.name = name
+        if context is None:
+            context = {}
+        self.context = context
 
     def add_context(self, context: dict) -> None:
         self.context.update(context)
@@ -79,6 +83,9 @@ class Span(ISpan):
         parent_id = existing_context.get("trace_id")
         if root_id is None:
             root_id = existing_context.get("root_id", trace_id)
+        else:
+            # TODO: cleanup, check.
+            parent_id = None
         # Setup new context.
         new_context = {"name": name, "root_id": root_id}
         if parent_id is not None:
@@ -89,13 +96,16 @@ class Span(ISpan):
         # Add user context.
         new_context.update(context)
         # Set current cotext.
-        self.context = new_context
+        new_span = Span(self.publisher, name=name, context=new_context)
+        # TODO: issues with this optimization? Async? Multiple routes?
+        # self.context = new_context
         # Exec code under trace.
         exc = None
         status = "OK"
         start = time.time()
         try:
-            yield self
+            # yield self
+            yield new_span
         except Exception as e:
             exc = e
             status = "ERROR"
@@ -113,11 +123,11 @@ class Span(ISpan):
             post_trace["exception"] = str(exc)
             post_trace["traceback"] = "".join(traceback.format_exception(exc))
         # Publish.
-        self.context.update(post_trace)
-        self.publisher.publish(self.context)
+        new_span.context.update(post_trace)
+        new_span.publisher.publish(new_span.context)
         # Restore.
-        self.name = existing_name
-        self.context = existing_context
+        new_span.name = existing_name
+        new_span.context = existing_context
         # Raise.
         if exc is not None:
             raise exc

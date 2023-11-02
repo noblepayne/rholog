@@ -19,7 +19,7 @@ async def start_a_trace(request: fastapi.Request, call_next):
     with ρ.trace(publisher, span_name) as span:
         request.scope["span"] = span
         response = await call_next(request)
-        span.extra["status_cdde"] = response.status_code
+        span.add_context({"status_cdde": response.status_code})
         return response
 
 
