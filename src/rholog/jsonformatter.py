@@ -4,8 +4,6 @@ import logging
 import sys
 import typing
 
-from . import rholog
-
 DEFAULT_FIELDS = {
     "name": "name",
     "levelname": "levelname",
@@ -80,28 +78,3 @@ def log_json_to_stdout(level=logging.DEBUG, fields=None, indent=None, clear=True
     formatter = JSONFormatter(fields=fields, indent=indent)
     stdout.setFormatter(formatter)
     root.addHandler(stdout)
-
-
-class JsonLogSpanPublisher(rholog.IPublish):
-    log: logging.Logger
-
-    def __init__(self, log: logging.Logger) -> None:
-        self.log = log
-
-    def publish(self, span: dict) -> None:
-        if span.get("status") == "ERROR":
-            level = logging.ERROR
-        elif span.get("exception"):
-            level = logging.ERROR
-        elif span.get("error"):
-            level = logging.ERROR
-        elif span.get("warning"):
-            level = logging.WARNING
-        elif span.get("debug"):
-            level = logging.DEBUG
-        else:
-            level = logging.INFO
-
-        span["message"] = "TRACE"
-
-        self.log.log(level, span)
