@@ -1,4 +1,5 @@
 import logging
+import sys
 
 from . import p
 
@@ -28,6 +29,4 @@ def publisher(log: logging.Logger) -> p.Publisher:
 
 
 # TODO: Move to tests.
-import sys
-
 assert isinstance(sys.modules[__name__], p.IPublisher)

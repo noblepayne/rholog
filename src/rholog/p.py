@@ -10,7 +10,7 @@ import uuid
 
 import typing_extensions
 
-# Base Schema
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Schema ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
 
 class SpanContext(typing_extensions.TypedDict, total=False):
@@ -68,7 +68,7 @@ class ITrace(typing.Protocol):
         ...
 
 
-# Publishers
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Publishers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
 
 Publisher = typing.Callable[[SpanData], None]
@@ -81,7 +81,7 @@ class IPublisher(typing.Protocol):
         ...
 
 
-# Implementation
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Implementation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
 
 def _find_filename_and_lineno(filename, lineno, currentframe: types.FrameType):
@@ -217,6 +217,9 @@ def tracer(publish: Publisher):
     return trace
 
 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Function Tracing ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+
+
 P = typing.ParamSpec("P")
 R = typing.TypeVar("R")
 FN = typing.Callable[P, R]
@@ -246,17 +249,17 @@ def traced(
 
         @functools.wraps(fn)
         def _inner(*args: P.args, **kwargs: P.kwargs) -> R:
-            span: ISpan
-            if final_span_param in kwargs:
-                found_span = kwargs[final_span_param]
-                assert isinstance(found_span, ISpan)
-                span = found_span
-            else:
-                span_idx = arg_idx[final_span_param]
-                found_span = args[span_idx]
-                assert isinstance(found_span, ISpan)
-                span = found_span
+            # Fetch existing span from kwargs or args.
+            found_span = (
+                kwargs[final_span_param]
+                # Check kwargs for span first.
+                if final_span_param in kwargs
+                # Fallback to fetching span from args using index.
+                else args[arg_idx[final_span_param]]
+            )
+            span: ISpan = typing.cast(ISpan, found_span)  # Assume user passed ISpan.
 
+            # Start a new span to trace wrapped fn.
             with span(
                 f"{fn.__module__}.{fn.__qualname__}",
                 {
@@ -266,17 +269,15 @@ def traced(
                     "lineno": fn.__code__.co_firstlineno,
                 },
             ) as newspan:
-                old_call = span.__call__
-                old_update = span.update
-                old_event = span.event
-                setattr(span, "__call__", newspan.__call__)
-                setattr(span, "update", newspan.update)
-                setattr(span, "event", newspan.event)
-                result = fn(*args, **kwargs)
-                setattr(span, "__call__", old_call)
-                setattr(span, "update", old_update)
-                setattr(span, "event", old_event)
-                return result
+                if final_span_param in kwargs:
+                    kwargs[final_span_param] = newspan
+                else:
+                    # type is preserved by span swap but can't use P.args annotation alone
+                    args = tuple(  # type: ignore
+                        newspan if idx == arg_idx[final_span_param] else arg
+                        for idx, arg in enumerate(args)
+                    )
+                return fn(*args, **kwargs)
 
         return _inner
 

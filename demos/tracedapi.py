@@ -1,64 +1,37 @@
 import logging
 import random
-import typing
+import time
 
 import fastapi
 
+import rholog.fastapi as pf
 import rholog.jsonformatter
 import rholog.jsonlog_span_publisher
 import rholog.p as p
 
+# Setup logging.
 rholog.jsonformatter.log_json_to_stdout(indent=2)
-log = logging.getLogger("fastapi")
+log = logging.getLogger(__name__)
+# Setup tracing.
 publish = rholog.jsonlog_span_publisher.publisher(log)
 trace = p.tracer(publish)
+trace_request = pf.request_tracer(trace)
 
+# Init FastAPI.
 app = fastapi.FastAPI()
 
-
-@app.middleware("http")
-async def start_a_trace(request: fastapi.Request, call_next):
-    scope = request.scope
-
-    span_name = f"{scope['method']} {scope['raw_path'].decode()}"
-    with trace(
-        span_name,
-        tags={
-            "http.method": request.method,
-            "http.url": request.url,
-            "http.raw_path": request.scope["raw_path"],
-            "http.path_params": request.path_params,
-            "http.query_params": request.query_params,
-            "http.host": request.client.host if request.client else None,
-            "http.port": request.client.port if request.client else None,
-        },
-    ) as span:
-        request.scope["span"] = span
-        response = await call_next(request)
-        route: fastapi.routing.APIRoute | None = request.scope.get("route")
-        tag_updates = {"status_code": response.status_code}
-        if route:
-            tag_updates["name"] = route.unique_id
-            tag_updates["http.path"] = route.path
-        else:
-            tag_updates["http.route.missing"] = True
-        span.update(tags=tag_updates)
-        return response
+# Add request tracing middleware.
+app.middleware("http")(trace_request)
 
 
-def span_from_scope(request: fastapi.Request) -> p.ISpan:
-    return request.scope["span"]
+@p.traced(span_param="_")
+def get_code(limit, _):
+    time.sleep(random.randint(0, 300) / 100)
+    return random.randint(0, limit)
 
 
-SpanFromScope = typing.Annotated[p.ISpan, fastapi.Depends(span_from_scope)]
-
-
+@app.get("/inventory/{id}")
 @p.traced
-def get_code(span):
-    return random.randint(0, 100)
-
-
-@app.get("/{a}")
-@p.traced
-def dumbroute(span: SpanFromScope, a: int, b: str):
-    return [{"code": get_code(span), "a": a, "b": b}]
+def dumbroute(span: pf.SpanFromScope, id: int, limit: int | None = 100):
+    time.sleep(1)
+    return [{"code": get_code(limit, _=span), "id": id, "b": limit}]
